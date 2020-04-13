@@ -38,49 +38,7 @@ class Car:
         # Input Manager
         self.inputs = InputManager()
 
-    def _shoot_rays(self, screen, scale):
-        head_light_angle = np.arctan((self.width / 2) / (self.height / 2))
-
-        rays_angles = [
-            0,
-            head_light_angle,
-            -head_light_angle,
-            np.pi / 2,
-            -np.pi / 2,
-            np.pi + head_light_angle,
-            np.pi + -head_light_angle,
-
-        ]
-
-        for ray_angle in rays_angles:
-            ray = Ray(
-                0, 0,
-                10
-            )
-
-            ray.rotate(self.angle + ray_angle)
-            ray.translate(self.position.x, self.position.y)
-            ray.render(screen, scale)
-
-            # check for intersections
-            for segment in self.track.line_segments:
-                intersection_point = check_intersection(
-                    segment,
-                    (
-                        Vector2(*ray.vertices[0]),
-                        Vector2(*ray.vertices[1])
-                    )
-                )
-
-                if len(intersection_point) > 0:
-                    pygame.draw.circle(
-                        screen,
-                        (255, 255, 255),
-                        intersection_point.astype(int),
-                        5
-                    )
-
-    def update(self, delta_time):
+    def _do_physics(self, delta_time):
         # handle steering
 
         if self.inputs.right:
@@ -139,7 +97,76 @@ class Car:
             degrees(-self.angle)) * delta_time
         self.angle += angular_velocity * delta_time
 
-    def render(self, screen, scale):
+    def _check_wall_collisions(self, vertices):
+        # construct car line edges
+        segments = []
+
+        for i in range(len(vertices)):
+            vertex = vertices[i]
+            next_vertex = vertices[i +
+                                   1] if len(vertices) - 1 != i else vertices[0]
+
+            segments.append((
+                Vector2(*vertex),
+                Vector2(*next_vertex)
+            ))
+
+        # Check the segments against the track for any intersection
+        for cat_segment in segments:
+            for track_segment in self.track.line_segments:
+                intersection_point = check_intersection(
+                    cat_segment,
+                    track_segment
+                )
+
+                if len(intersection_point) > 0:
+                    print('hit the wall')
+
+    def _shoot_rays(self, screen, scale):
+        head_light_angle = np.arctan((self.width / 2) / (self.height / 2))
+
+        rays_angles = [
+            0,
+            head_light_angle,
+            -head_light_angle,
+            np.pi / 2,
+            -np.pi / 2,
+            np.pi + head_light_angle,
+            np.pi + -head_light_angle,
+
+        ]
+
+        for ray_angle in rays_angles:
+            ray = Ray(
+                0, 0,
+                10
+            )
+
+            ray.rotate(self.angle + ray_angle)
+            ray.translate(self.position.x, self.position.y)
+            ray.render(screen, scale)
+
+            # check for intersections
+            for segment in self.track.line_segments:
+                intersection_point = check_intersection(
+                    segment,
+                    (
+                        Vector2(*ray.vertices[0]),
+                        Vector2(*ray.vertices[1])
+                    )
+                )
+
+                if len(intersection_point) > 0:
+                    pygame.draw.circle(
+                        screen,
+                        (255, 255, 255),
+                        intersection_point.astype(int),
+                        5
+                    )
+
+    def render(self, screen, delta_time, scale):
+        self._do_physics(delta_time)
+
         # Creating graphics
         car_graphic = Rect(
             -self.height / 2, -self.width / 2,
@@ -163,6 +190,9 @@ class Car:
         car_graphic.translate(self.position.x, self.position.y)
         car_graphic.render(screen, scale)
 
+        # out of track detection
+        self._check_wall_collisions(car_graphic.vertices)
+
         # rear wheels
         for wheel, side in zip(wheels[:2], [1, -1]):
             wheel.translate(-self.height / 2 +
@@ -179,4 +209,4 @@ class Car:
             wheel.translate(self.position.x, self.position.y)
             wheel.render(screen, scale)
 
-        self._shoot_rays(screen, scale)
+        # self._shoot_rays(screen, scale)

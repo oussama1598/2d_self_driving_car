@@ -28,7 +28,7 @@ class Rect:
             self.vertices[i] = rotate_vector(self.vertices[i], angle)
 
     def render(self, screen, scale):
-        vertices = list(map(
+        self.vertices = list(map(
             lambda vertex: vertex * scale,
             self.vertices
         ))
@@ -36,5 +36,5 @@ class Rect:
         pygame.draw.polygon(
             screen,
             self.color,
-            vertices
+            self.vertices
         )

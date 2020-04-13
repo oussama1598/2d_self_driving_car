@@ -27,8 +27,6 @@ while running:
 
         car.inputs.update_inputs(event)
 
-    car.update(delta_time)
-
     screen.fill((0, 0, 0))
 
     track.render(screen)
@@ -46,7 +44,7 @@ while running:
         (WIDTH / 2, HEIGHT)
     )
 
-    car.render(screen, SCALE)
+    car.render(screen, delta_time, SCALE)
     pygame.display.flip()
 
     clock.tick(FPS)
