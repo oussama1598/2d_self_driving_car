@@ -2,22 +2,26 @@ import pygame
 import numpy as np
 from math import sin, radians, degrees, copysign
 from pygame.math import Vector2
+from app.utils.math import check_intersection
 from app.modules.input_manager import InputManager
 from app.modules.graphics.rect import Rect
+from app.modules.graphics.ray import Ray
 
 
 class Car:
-    def __init__(self, x, y, angle=0.0, length=4, max_steering=np.pi / 6, max_acceleration=5.0):
+    def __init__(self, x, y, track=None, angle=0.0, length=4, max_steering=np.pi / 3, max_acceleration=5.0):
         self.position = Vector2(x, y)
         self.velocity = Vector2(0, 0)
         self.angle = angle
 
-        self.width = 1
-        self.height = 2
+        self.track = track
+
+        self.width = .5
+        self.height = 1
         self.length = length
 
-        self.wheel_radius = 0.3
-        self.wheel_width = 0.2
+        self.wheel_radius = 0.3 / 2
+        self.wheel_width = 0.2 / 2
 
         self.max_acceleration = max_acceleration
         self.max_steering = max_steering
@@ -33,6 +37,48 @@ class Car:
 
         # Input Manager
         self.inputs = InputManager()
+
+    def _shoot_rays(self, screen, scale):
+        head_light_angle = np.arctan((self.width / 2) / (self.height / 2))
+
+        rays_angles = [
+            0,
+            head_light_angle,
+            -head_light_angle,
+            np.pi / 2,
+            -np.pi / 2,
+            np.pi + head_light_angle,
+            np.pi + -head_light_angle,
+
+        ]
+
+        for ray_angle in rays_angles:
+            ray = Ray(
+                0, 0,
+                10
+            )
+
+            ray.rotate(self.angle + ray_angle)
+            ray.translate(self.position.x, self.position.y)
+            ray.render(screen, scale)
+
+            # check for intersections
+            for segment in self.track.line_segments:
+                intersection_point = check_intersection(
+                    segment,
+                    (
+                        Vector2(*ray.vertices[0]),
+                        Vector2(*ray.vertices[1])
+                    )
+                )
+
+                if len(intersection_point) > 0:
+                    pygame.draw.circle(
+                        screen,
+                        (255, 255, 255),
+                        intersection_point.astype(int),
+                        5
+                    )
 
     def update(self, delta_time):
         # handle steering
@@ -132,3 +178,5 @@ class Car:
             wheel.rotate(self.angle)
             wheel.translate(self.position.x, self.position.y)
             wheel.render(screen, scale)
+
+        self._shoot_rays(screen, scale)

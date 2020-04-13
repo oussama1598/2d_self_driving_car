@@ -29,3 +29,34 @@ def rotate_90_counter_clock_wise(vector):
 
 def normalize(vector):
     return vector / np.linalg.norm(vector)
+
+
+def check_intersection(segment_1, segment_2):
+    x1, y1 = segment_1[0].x, segment_1[0].y
+    x2, y2 = segment_1[1].x, segment_1[1].y
+
+    x3, y3 = segment_2[0].x, segment_2[0].y
+    x4, y4 = segment_2[1].x, segment_2[1].y
+
+    denominator = np.linalg.det(np.array([
+        [x1-x2, x3-x4],
+        [y1-y2, y3-y4]
+    ]))
+
+    t = np.linalg.det(np.array([
+        [x1-x3, x3-x4],
+        [y1-y3, y3-y4]
+    ])) / denominator
+
+    u = -np.linalg.det(np.array([
+        [x1-x2, x1-x3],
+        [y1-y2, y1-y3]
+    ])) / denominator
+
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        return np.array([
+            x1 + t * (x2 - x1),
+            y1 + t * (y2 - y1)
+        ])
+
+    return []
