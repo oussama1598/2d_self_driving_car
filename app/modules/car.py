@@ -6,11 +6,21 @@ from app.utils.math import check_intersection
 from app.modules.input_manager import InputManager
 from app.modules.graphics.rect import Rect
 from app.modules.graphics.ray import Ray
+from app.modules.neural_network import NeuralNetwork
 
 
 class Car:
-    def __init__(self, x, y, track=None, angle=0.0, length=4, max_steering=np.pi / 3, max_acceleration=5.0):
-        self.position = Vector2(x, y)
+    def __init__(self, x, y, track=None, angle=0.0, length=4, max_steering=np.pi / 2, max_acceleration=5.0):
+        self.time = 0
+
+        self.neural_network = NeuralNetwork(
+            inputs=7,
+            outputs=2,
+            hidden_layers=2,
+            hidden_neurons=7
+        )
+
+        self.position = Vector2(5, 5)
         self.velocity = Vector2(0, 0)
         self.angle = angle
 
@@ -30,7 +40,7 @@ class Car:
         self.brake_deceleration = 10
         self.free_deceleration = 2
 
-        self.acceleration_rate = 3
+        self.acceleration_rate = 10
 
         self.acceleration = 0.0
         self.steering = 0.0
@@ -38,47 +48,39 @@ class Car:
         # Input Manager
         self.inputs = InputManager()
 
-    def _do_physics(self, delta_time):
+        self.neural_network.show()
+
+    def _do_physics(self, delta_time, steering, acceleration):
         # handle steering
+        self.steering = steering * self.max_steering
 
-        if self.inputs.right:
-            self.steering -= (np.pi / 6) * delta_time
-        elif self.inputs.left:
-            self.steering += (np.pi / 6) * delta_time
-        else:
-            self.steering = 0
+        # if self.inputs.throttle:
+        #     if self.velocity.x < 0:
+        #         self.acceleration = self.brake_deceleration
+        #     else:
+        #         self.acceleration += self.acceleration_rate * delta_time
 
-        self.steering = np.clip(
-            self.steering,
-            -self.max_steering,
-            self.max_steering
-        )
+        # elif self.inputs.brake:
+        #     if self.velocity.x > 0:
+        #         self.acceleration = -self.brake_deceleration
+        #     else:
+        #         self.acceleration -= self.acceleration_rate * delta_time
 
-        if self.inputs.throttle:
-            if self.velocity.x < 0:
-                self.acceleration = self.brake_deceleration
-            else:
-                self.acceleration += self.acceleration_rate * delta_time
+        # else:
+        #     if abs(self.velocity.x) > delta_time * self.free_deceleration:
+        #         self.acceleration = - \
+        #             np.abs(self.free_deceleration) * np.sign(self.velocity.x)
+        #     else:
+        #         if delta_time != 0:
+        #             self.acceleration = -self.velocity.x / delta_time
 
-        elif self.inputs.brake:
-            if self.velocity.x > 0:
-                self.acceleration = -self.brake_deceleration
-            else:
-                self.acceleration -= self.acceleration_rate * delta_time
+        # self.acceleration = np.clip(
+        #     self.acceleration,
+        #     -self.max_acceleration,
+        #     self.max_acceleration
+        # )
 
-        else:
-            if abs(self.velocity.x) > delta_time * self.free_deceleration:
-                self.acceleration = - \
-                    np.abs(self.free_deceleration) * np.sign(self.velocity.x)
-            else:
-                if delta_time != 0:
-                    self.acceleration = -self.velocity.x / delta_time
-
-        self.acceleration = np.clip(
-            self.acceleration,
-            -self.max_acceleration,
-            self.max_acceleration
-        )
+        self.acceleration = acceleration * self.max_acceleration
 
         # integrate the position
         self.velocity.x += self.acceleration * delta_time
@@ -88,7 +90,7 @@ class Car:
             self.velocity.x, -self.max_velocity, self.max_velocity)
 
         if self.steering:
-            turning_radius = self.length / sin(self.steering)
+            turning_radius = (self.length / 2) / sin(self.steering)
             angular_velocity = self.velocity.x / turning_radius
         else:
             angular_velocity = 0
@@ -120,7 +122,8 @@ class Car:
                 )
 
                 if len(intersection_point) > 0:
-                    print('hit the wall')
+                    # print('hit the wall')
+                    pass
 
     def _shoot_rays(self, screen, scale):
         head_light_angle = np.arctan((self.width / 2) / (self.height / 2))
@@ -133,10 +136,13 @@ class Car:
             -np.pi / 2,
             np.pi + head_light_angle,
             np.pi + -head_light_angle,
-
         ]
 
-        for ray_angle in rays_angles:
+        intersection_points_per_rays = [[]
+                                        for i in range(len(rays_angles))]
+        distances = np.array([np.inf for i in range(len(rays_angles))])
+
+        for i, ray_angle in enumerate(rays_angles):
             ray = Ray(
                 0, 0,
                 10
@@ -157,15 +163,40 @@ class Car:
                 )
 
                 if len(intersection_point) > 0:
-                    pygame.draw.circle(
-                        screen,
-                        (255, 255, 255),
-                        intersection_point.astype(int),
-                        5
-                    )
+                    intersection_points_per_rays[i].append(intersection_point)
+
+        for i, intersection_points in enumerate(intersection_points_per_rays):
+            if len(intersection_points) == 0:
+                continue
+
+            points_distances = list(map(
+                lambda point: np.linalg.norm(self.position - point),
+                intersection_points
+            ))
+            nearest_point = intersection_points[np.argsort(points_distances)[
+                0]]
+
+            pygame.draw.circle(
+                screen,
+                (255, 255, 255),
+                nearest_point.astype(int),
+                5
+            )
+
+            distances[i] = np.sort(points_distances)[0]
+
+        return distances
 
     def render(self, screen, delta_time, scale):
-        self._do_physics(delta_time)
+        self.time += delta_time
+
+        distances = self._shoot_rays(screen, scale)
+        output = self.neural_network.predict(
+            np.array([distances]))
+
+        # print(output)
+
+        self._do_physics(delta_time, output[0][0], output[0][1])
 
         # Creating graphics
         car_graphic = Rect(
@@ -208,5 +239,3 @@ class Car:
             wheel.rotate(self.angle)
             wheel.translate(self.position.x, self.position.y)
             wheel.render(screen, scale)
-
-        # self._shoot_rays(screen, scale)

@@ -16,7 +16,10 @@ clock = pygame.time.Clock()
 running = True
 
 track = Track('path.json')
-car = Car(0, 0, track=track)
+
+cars = []
+for i in range(15):
+    cars.append(Car(0, 0, track=track))
 
 while running:
     delta_time = clock.get_time() / 1000
@@ -24,8 +27,6 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-        car.inputs.update_inputs(event)
 
     screen.fill((0, 0, 0))
 
@@ -43,8 +44,8 @@ while running:
         (WIDTH / 2, 0),
         (WIDTH / 2, HEIGHT)
     )
-
-    car.render(screen, delta_time, SCALE)
+    for i in range(15):
+        cars[i].render(screen, delta_time, SCALE)
     pygame.display.flip()
 
     clock.tick(FPS)
