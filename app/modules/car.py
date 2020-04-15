@@ -22,7 +22,7 @@ class Car:
             hidden_neurons=7
         )
 
-        self.manual = False
+        self.manual = manual
         self.position = Vector2(x, y)
         self.velocity = Vector2(0, 0)
         self.angle = angle
@@ -40,6 +40,8 @@ class Car:
         self.max_steering = max_steering
         self.max_velocity = 20
 
+        self.ray_length = 10
+
         self.brake_deceleration = 10
         self.free_deceleration = 2
 
@@ -48,13 +50,32 @@ class Car:
         self.acceleration = 0.0
         self.steering = 0.0
 
-        self.last_position = None
-        self.traveled_distance = 0
+        self.check_point_index = 0
+        self.last_check_point_updated_time = 0
+        self.timeout = 5
+
+        self.fitness = 0
 
         # Input Manager
         self.inputs = InputManager()
 
-        self.neural_network.show()
+    def _kill(self):
+        self.game.remove(self)
+
+    def _get_segments(self, vertices):
+        segments = []
+
+        for i in range(len(vertices)):
+            vertex = vertices[i]
+            next_vertex = vertices[i +
+                                   1] if len(vertices) - 1 != i else vertices[0]
+
+            segments.append((
+                Vector2(*vertex),
+                Vector2(*next_vertex)
+            ))
+
+        return segments
 
     def _do_physics(self, delta_time, steering, acceleration):
         # handle steering
@@ -120,37 +141,41 @@ class Car:
             degrees(-self.angle)) * delta_time
         self.angle += angular_velocity * delta_time
 
-    def _calculate_traveled_distance(self):
-        if self.last_position:
-            self.traveled_distance += np.linalg.norm(
-                self.position - self.last_position)
+    def _check_for_checkpoints(self, car_vertices):
+        car_segments = self._get_segments(car_vertices)
 
-        self.last_position = Vector2(self.position.x, self.position.y)
+        if np.abs(self.time - self.last_check_point_updated_time) > self.timeout:
+            self._kill()
 
-    def _check_wall_collisions(self, vertices):
-        # construct car line edges
-        segments = []
+        for car_segment in car_segments:
+            intersection_point = check_intersection(
+                car_segment,
+                self.track.check_points[self.check_point_index]
+            )
 
-        for i in range(len(vertices)):
-            vertex = vertices[i]
-            next_vertex = vertices[i +
-                                   1] if len(vertices) - 1 != i else vertices[0]
+            if len(intersection_point) > 0:
+                if self.check_point_index != len(self.track.check_points) - 1:
+                    self.check_point_index += 1
+                else:
+                    # The car basically finished the whole course
+                    print('end')
+                    pass
 
-            segments.append((
-                Vector2(*vertex),
-                Vector2(*next_vertex)
-            ))
+                self.last_check_point_updated_time = self.time
+
+    def _check_wall_collisions(self, car_vertices):
+        car_segments = self._get_segments(car_vertices)
 
         # Check the segments against the track for any intersection
-        for cat_segment in segments:
+        for car_segment in car_segments:
             for track_segment in self.track.line_segments:
                 intersection_point = check_intersection(
-                    cat_segment,
+                    car_segment,
                     track_segment
                 )
 
                 if len(intersection_point) > 0:
-                    self.game.remove(self)
+                    self._kill()
 
     def _shoot_rays(self, screen, scale):
         head_light_angle = np.arctan((self.width / 2) / (self.height / 2))
@@ -172,7 +197,7 @@ class Car:
         for i, ray_angle in enumerate(rays_angles):
             ray = Ray(
                 0, 0,
-                10
+                self.ray_length
             )
 
             ray.rotate(self.angle + ray_angle)
@@ -211,9 +236,16 @@ class Car:
             )
 
             # to normalize the distances to [0, 1]
-            distances[i] = np.sort(points_distances)[0] / (10 * scale)
+            distances[i] = np.sort(points_distances)[
+                0] / (self.ray_length * scale)
 
         return distances
+
+    def _calculate_fitness(self, distances):
+        if self.time > 0:
+            self.fitness = self.game.check_points_multiplyer * (self.check_point_index + 1) \
+                + self.game.time_multiplyer * (1 / self.time)
+            # + self.game.sensors_multiplyer * np.average(distances)
 
     def render(self, screen, delta_time, scale):
         self.time += delta_time
@@ -227,9 +259,6 @@ class Car:
                 np.array([distances]))
 
             self._do_physics(delta_time, output[0][0], output[0][1])
-
-        # Calculate traveled distance
-        self._calculate_traveled_distance()
 
         # Creating graphics
         car_graphic = Rect(
@@ -254,6 +283,9 @@ class Car:
         car_graphic.translate(self.position.x, self.position.y)
         car_graphic.render(screen, scale)
 
+        # Calculate traveled distance
+        self._check_for_checkpoints(car_graphic.vertices)
+
         # out of track detection
         self._check_wall_collisions(car_graphic.vertices)
 
@@ -272,3 +304,5 @@ class Car:
             wheel.rotate(self.angle)
             wheel.translate(self.position.x, self.position.y)
             wheel.render(screen, scale)
+
+        self._calculate_fitness(distances)

@@ -22,6 +22,8 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+        game.update_inputs(event)
+
     screen.fill((0, 0, 0))
 
     game.update(delta_time)

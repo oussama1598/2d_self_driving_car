@@ -1,12 +1,13 @@
+import copy
 import numpy as np
 
 
 class NeuralNetwork:
     def __init__(self, inputs=1, hidden_layers=1, hidden_neurons=1, outputs=1):
         self.inputs = inputs
-        self.hidden_layers = hidden_layers
-        self.hidden_neurons = hidden_neurons
-        self.outputs = outputs
+        self.hidden_layers_number = hidden_layers
+        self.hidden_neurons_number = hidden_neurons
+        self.outputs_number = outputs
 
         # Create the layers
         self.inputs_layer = np.zeros((1, inputs))
@@ -19,7 +20,7 @@ class NeuralNetwork:
         # Create the hidden layers
 
         for i in range(hidden_layers + 1):
-            self.biases.append(np.random.default_rng().uniform(-1.0, 1.0))
+            self.biases.append(np.random.uniform(-1.0, 1.0))
 
             # Check if its the first set of weights
             if i == 0:
@@ -47,6 +48,32 @@ class NeuralNetwork:
         print(self.outputs_layer.shape,  end='---')
 
         print('')
+
+    def copy(self, neural_network):
+        self.weights = copy.deepcopy(neural_network.weights)
+        self.biases = copy.deepcopy(neural_network.biases)
+
+        return self
+
+    def merge(self, parent_1, parent_2, mutation_rate=0.5):
+        for i in range(self.hidden_layers_number + 1):
+            if np.random.uniform(0, 1) < mutation_rate:
+                self.biases[i] = np.random.uniform(-1.0, 1.0)
+            else:
+                if np.random.uniform(0, 1) > .5:
+                    self.biases[i] = parent_1.biases[i]
+                else:
+                    self.biases[i] = parent_2.biases[i]
+
+            for j in range(len(self.weights[i])):
+                for k in range(len(self.weights[i][j])):
+                    if np.random.uniform(0, 1) < mutation_rate:
+                        self.weights[i][j][k] = np.random.uniform(-1.0, 1.0)
+                    else:
+                        if np.random.uniform(0, 1) > .5:
+                            self.weights[i][j][k] = parent_1.weights[i][j][k]
+                        else:
+                            self.weights[i][j][k] = parent_2.weights[i][j][k]
 
     def predict(self, inputs):
         self.inputs_layer = np.tanh(inputs.copy())

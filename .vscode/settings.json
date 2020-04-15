@@ -1,6 +1,8 @@
 {
     "python.pythonPath": "/home/red-scule/.local/share/virtualenvs/2d_self_driving_car-ORQrolRC/bin/python",
     "cSpell.words": [
+        "blit",
+        "dtype",
         "numpy",
         "pygame",
         "pyplot",
