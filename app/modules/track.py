@@ -9,6 +9,7 @@ class Track:
 
         self.outer_vertices = []
         self.inner_vertices = []
+        self.starting_point = (0, 0)
         self.line_segments = []
 
         self._load_points()
@@ -21,6 +22,7 @@ class Track:
 
             self.outer_vertices = points_data['outer_vertices']
             self.inner_vertices = points_data['inner_vertices']
+            self.starting_point = points_data['starting_point']
 
     def _construct_line_segments(self, vertices):
         for i in range(len(vertices)):
