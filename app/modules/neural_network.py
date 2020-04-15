@@ -55,26 +55,6 @@ class NeuralNetwork:
 
         return self
 
-    def merge(self, parent_1, parent_2, mutation_rate=0.5):
-        for i in range(self.hidden_layers_number + 1):
-            if np.random.uniform(0, 1) < mutation_rate:
-                self.biases[i] = np.random.uniform(-1.0, 1.0)
-            else:
-                if np.random.uniform(0, 1) > .5:
-                    self.biases[i] = parent_1.biases[i]
-                else:
-                    self.biases[i] = parent_2.biases[i]
-
-            for j in range(len(self.weights[i])):
-                for k in range(len(self.weights[i][j])):
-                    if np.random.uniform(0, 1) < mutation_rate:
-                        self.weights[i][j][k] = np.random.uniform(-1.0, 1.0)
-                    else:
-                        if np.random.uniform(0, 1) > .5:
-                            self.weights[i][j][k] = parent_1.weights[i][j][k]
-                        else:
-                            self.weights[i][j][k] = parent_2.weights[i][j][k]
-
     def predict(self, inputs):
         self.inputs_layer = np.tanh(inputs.copy())
 

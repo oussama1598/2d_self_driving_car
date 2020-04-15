@@ -19,17 +19,12 @@ class Game:
 
         # fitness multiplyers
         self.check_points_multiplyer = 1.4
-        self.time_multiplyer = .2
+        self.distance_multiplyer = 1.4
         self.sensors_multiplyer = .1
 
         # Genetic algorithm configuration
         self.cars_per_generation = cars_per_generation
-        self.mutation_rate = 0.05  # 5% of randomizing
-        # number of agents that are going to get selected from the most fit cars
-        self.best_agents_selection = 8
-        # number of agents that are going to get selected from the worst fit cars
-        self.worst_agents_selection = 3
-        # how much agents to cross over the rest well be randomized
+        self.mutation_rate = 0.1  # 10% of randomizing
         self.number_to_cross_over = 40
 
         self.current_generation = 1
@@ -42,14 +37,33 @@ class Game:
 
         self._setup_first_generation()
 
+    def _get_random_color(self):
+        r_color = np.linspace(0, 255, self.cars_per_generation)
+        g_color = np.linspace(0, 255, self.cars_per_generation)
+        b_color = np.linspace(0, 255, self.cars_per_generation)
+
+        return (
+            random.choice(r_color),
+            random.choice(g_color),
+            random.choice(b_color)
+        )
+
     def _setup_first_generation(self):
         starting_x = self.track.starting_point[0] / self.scale
         starting_y = self.track.starting_point[1] / self.scale
 
         for i in range(self.cars_per_generation):
+            r_color = np.linspace(0, 255, 80)[i]
+
             self.current_cars.append(
-                Car(starting_x, starting_y, game=self,
-                    track=self.track, manual=False)
+                Car(
+                    starting_x,
+                    starting_y,
+                    color=self._get_random_color(),
+                    game=self,
+                    track=self.track,
+                    manual=False
+                )
             )
 
     def _render_stats(self):
@@ -63,6 +77,34 @@ class Game:
 
         self.screen.blit(text, textRect)
 
+    def _mutate(self, value):
+        if np.random.uniform(0, 1) < self.mutation_rate:
+            return np.random.uniform(-1.0, 1.0)
+
+        return value
+
+    def _merge(self, parent_1, parent_2, child1, child2):
+        for i in range(child1.hidden_layers_number + 1):
+            if np.random.uniform(0, 1) > .5:
+                child1.biases[i] = self._mutate(parent_1.biases[i])
+                child2.biases[i] = self._mutate(parent_2.biases[i])
+            else:
+                child1.biases[i] = self._mutate(parent_2.biases[i])
+                child2.biases[i] = self._mutate(parent_1.biases[i])
+
+            for j in range(len(child1.weights[i])):
+                for k in range(len(child1.weights[i][j])):
+                    if np.random.uniform(0, 1) > .5:
+                        child1.weights[i][j][k] = self._mutate(
+                            parent_1.weights[i][j][k])
+                        child2.weights[i][j][k] = self._mutate(
+                            parent_2.weights[i][j][k])
+                    else:
+                        child1.weights[i][j][k] = self._mutate(
+                            parent_2.weights[i][j][k])
+                        child2.weights[i][j][k] = self._mutate(
+                            parent_1.weights[i][j][k])
+
     def _increase_generation(self):
         starting_x = self.track.starting_point[0] / self.scale
         starting_y = self.track.starting_point[1] / self.scale
@@ -71,55 +113,59 @@ class Game:
 
         genes_pool = []
 
-        np_population = np.array(self.population)
-
-        population = np_population[
-            np_population[:, 0].argsort()
-        ]
-
         # Filling the genes pool
-        for fitness, neural_network in population[:self.best_agents_selection]:
+        for fitness, neural_network, color in self.population:
             number_of_times = int(fitness * 10)
 
             for i in range(number_of_times):
                 genes_pool.append(
-                    copy.deepcopy(neural_network)
-                )
-
-        for fitness, neural_network in population[-self.worst_agents_selection:-1]:
-            number_of_times = int(fitness * 10)
-
-            for i in range(number_of_times):
-                genes_pool.append(
-                    copy.deepcopy(neural_network)
+                    [copy.deepcopy(neural_network), color, fitness]
                 )
 
         # Cross over the networks
         for i in range(self.number_to_cross_over):
-            first_parent = random.choice(genes_pool)
-            second_parent = None
+            first_dna = random.choice(genes_pool)
+            second_dna = None
 
-            while second_parent == None or first_parent == second_parent:
-                second_parent = random.choice(genes_pool)
+            while second_dna == None or first_dna == second_dna:
+                second_dna = random.choice(genes_pool)
 
-            car = Car(starting_x, starting_y, game=self,
-                      track=self.track, manual=False)
+            print('parent 1: ', first_dna[2])
+            print('parent 2: ', second_dna[2])
 
-            car.neural_network.merge(
-                first_parent, second_parent, mutation_rate=self.mutation_rate)
+            first_parent = first_dna[0]
+            second_parent = second_dna[0]
 
-            self.current_cars.append(car)
+            child_1 = Car(starting_x, starting_y, game=self,
+                          track=self.track, manual=False)
+            child_2 = Car(starting_x, starting_y, game=self,
+                          track=self.track, manual=False)
 
-        for i in range(self.cars_per_generation - self.number_to_cross_over):
+            self._merge(first_parent, second_parent,
+                        child_1.neural_network, child_2.neural_network)
+
+            if np.random.uniform(0, 1) > .5:
+                child_1.color = first_dna[1]
+                child_2.color = second_dna[1]
+            else:
+                child_2.color = first_dna[1]
+                child_1.color = second_dna[1]
+
+            self.current_cars.append(child_1)
+            self.current_cars.append(child_2)
+
+        for i in range(self.cars_per_generation - (self.number_to_cross_over * 2)):
             self.current_cars.append(
-                Car(starting_x, starting_y, game=self,
+                Car(starting_x, starting_y, color=self._get_random_color(), game=self,
                     track=self.track, manual=False)
             )
+
+        self.population = []
 
     def remove(self, car):
         if car in self.current_cars:
             self.population.append(
-                [car.fitness, copy.deepcopy(car.neural_network)])
+                [car.fitness, copy.deepcopy(car.neural_network), car.color])
             self.current_cars.remove(car)
             self.playing_cars.remove(car)
 

@@ -3,9 +3,11 @@
     "cSpell.words": [
         "blit",
         "dtype",
+        "interp",
         "numpy",
         "pygame",
         "pyplot",
-        "randmized"
+        "randmized",
+        "scipy"
     ]
 }

@@ -1,5 +1,6 @@
 import pygame
 import numpy as np
+from scipy.interpolate import interp1d
 from math import sin, radians, degrees, copysign
 from pygame.math import Vector2
 from app.utils.math import check_intersection
@@ -10,10 +11,12 @@ from app.modules.neural_network import NeuralNetwork
 
 
 class Car:
-    def __init__(self, x, y, game=None, track=None, angle=0.0, length=4, max_steering=np.pi / 2, max_acceleration=5.0, manual=False):
+    def __init__(self, x, y, game=None, color=(255, 0, 0), track=None, angle=0.0, length=4, max_steering=np.pi / 2, max_acceleration=5.0, manual=False):
         self.time = 0
 
         self.game = game
+
+        self.color = color
 
         self.neural_network = NeuralNetwork(
             inputs=7,
@@ -52,6 +55,8 @@ class Car:
 
         self.check_point_index = 0
         self.last_check_point_updated_time = 0
+        self.last_position = Vector2(x, y)
+        self.traveled_distance = 0
         self.timeout = 5
 
         self.fitness = 0
@@ -121,8 +126,10 @@ class Car:
                 self.max_acceleration
             )
         else:
+            acc = interp1d([-1, 1], [0, 1])
+
             self.steering = steering * self.max_steering
-            self.acceleration = acceleration * self.max_acceleration
+            self.acceleration = acc(acceleration) * self.max_acceleration
 
         # integrate the position
         self.velocity.x += self.acceleration * delta_time
@@ -192,7 +199,8 @@ class Car:
 
         intersection_points_per_rays = [[]
                                         for i in range(len(rays_angles))]
-        distances = np.array([np.inf for i in range(len(rays_angles))])
+        distances = np.array(
+            [self.ray_length * scale for i in range(len(rays_angles))])
 
         for i, ray_angle in enumerate(rays_angles):
             ray = Ray(
@@ -241,10 +249,15 @@ class Car:
 
         return distances
 
+    def _update_distance(self):
+        self.traveled_distance = np.linalg.norm(
+            self.position - self.last_position)
+
     def _calculate_fitness(self, distances):
         if self.time > 0:
-            self.fitness = self.game.check_points_multiplyer * (self.check_point_index + 1) \
-                + self.game.time_multiplyer * (1 / self.time)
+            self.fitness = self.game.check_points_multiplyer * \
+                (self.check_point_index * 20) \
+                + self.game.distance_multiplyer * self.traveled_distance
             # + self.game.sensors_multiplyer * np.average(distances)
 
     def render(self, screen, delta_time, scale):
@@ -263,7 +276,8 @@ class Car:
         # Creating graphics
         car_graphic = Rect(
             -self.height / 2, -self.width / 2,
-            self.height, self.width
+            self.height, self.width,
+            color=self.color
         )
         wheels = []
 
@@ -305,4 +319,5 @@ class Car:
             wheel.translate(self.position.x, self.position.y)
             wheel.render(screen, scale)
 
+        self._update_distance()
         self._calculate_fitness(distances)
