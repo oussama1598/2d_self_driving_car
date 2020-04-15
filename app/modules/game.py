@@ -12,19 +12,19 @@ class Game:
         self.screen = screen
         self.scale = scale
 
-        self.number_of_cars_at_time = 6
+        self.number_of_cars_at_time = 5
 
         # font for the stats
         self.font = pygame.font.SysFont(None, 20)
 
         # fitness multiplyers
-        self.check_points_multiplyer = 1.4
-        self.distance_multiplyer = 1.4
+        self.check_points_multiplyer = 5
+        self.distance_multiplyer = 1
         self.sensors_multiplyer = .1
 
         # Genetic algorithm configuration
         self.cars_per_generation = cars_per_generation
-        self.mutation_rate = 0.1  # 10% of randomizing
+        self.mutation_rate = 0.05  # 10% of randomizing
         self.number_to_cross_over = 40
 
         self.current_generation = 1
@@ -85,7 +85,7 @@ class Game:
 
     def _merge(self, parent_1, parent_2, child1, child2):
         for i in range(child1.hidden_layers_number + 1):
-            if np.random.uniform(0, 1) > .5:
+            if i < int((child1.hidden_layers_number + 1) / 2):
                 child1.biases[i] = self._mutate(parent_1.biases[i])
                 child2.biases[i] = self._mutate(parent_2.biases[i])
             else:
@@ -94,7 +94,7 @@ class Game:
 
             for j in range(len(child1.weights[i])):
                 for k in range(len(child1.weights[i][j])):
-                    if np.random.uniform(0, 1) > .5:
+                    if k < int(len(child1.weights[i][j]) / 2):
                         child1.weights[i][j][k] = self._mutate(
                             parent_1.weights[i][j][k])
                         child2.weights[i][j][k] = self._mutate(
@@ -168,6 +168,8 @@ class Game:
                 [car.fitness, copy.deepcopy(car.neural_network), car.color])
             self.current_cars.remove(car)
             self.playing_cars.remove(car)
+
+            print(car.fitness)
 
     def update_inputs(self, event):
         for car in self.current_cars:

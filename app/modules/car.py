@@ -200,7 +200,7 @@ class Car:
         intersection_points_per_rays = [[]
                                         for i in range(len(rays_angles))]
         distances = np.array(
-            [self.ray_length * scale for i in range(len(rays_angles))])
+            [np.inf for i in range(len(rays_angles))])
 
         for i, ray_angle in enumerate(rays_angles):
             ray = Ray(
@@ -255,9 +255,9 @@ class Car:
 
     def _calculate_fitness(self, distances):
         if self.time > 0:
-            self.fitness = self.game.check_points_multiplyer * \
-                (self.check_point_index * 20) \
-                + self.game.distance_multiplyer * self.traveled_distance
+            self.fitness = int(self.game.check_points_multiplyer *
+                               (self.check_point_index * 20)
+                               + self.game.distance_multiplyer * self.traveled_distance)
             # + self.game.sensors_multiplyer * np.average(distances)
 
     def render(self, screen, delta_time, scale):
